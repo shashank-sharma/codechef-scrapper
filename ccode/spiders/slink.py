@@ -16,6 +16,7 @@ Enter start_urls with the given url and rest it will do it for you.
 '''
 
 import scrapy
+import time
 
 class LoginSpider(scrapy.Spider):
 
@@ -34,38 +35,44 @@ class LoginSpider(scrapy.Spider):
         self.count1 = 0
         self.ll = ''
         self.kk = ''
+        self.q = 0
 
     name = 'codespider'
 
     # URL to start scrapping
     start_urls = ['https://www.codechef.com/problems/school']
 
-    def getAnswer(self, response):
-        count1 = 0
+    def gett(self, response):
+        tempCount = 0
         data = response.meta['data']
+        tag = response.meta['tag']
+        data['answer'][tag] = []
         a = response.css('tbody')
-        if self.lang[self.ll] in response.css('select.field-style1 option::text').extract():
+        if self.lang[tag] in response.css('select.field-style1 option::text').extract():
             for i in a.css('tr'):
-                try:
-                    data['answer'][self.ll].append(i.css('td::text').extract()[0])
-                except:
-                    print('-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=')
-                    print(i.css('td::text').extract())
-                    print('-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=')
+                data['answer'][tag].append(i.css('td::text').extract()[0])
 
-            if ('/sites/all/themes/abessive/images/page-next-active.gif' in response.text):
-                count1 += 1
+            if ('/sites/all/themes/abessive/images/page-next-active.gif' in response.text and tempCount < 5):
+                tempCount += 1
                 ans = 'https://www.codechef.com' + response.css('a::attr(href)').re(r'/status/.*')[0]
-                print('-=-=-=-=')
-                print(ans)
                 yield scrapy.Request(url = ans, callback = self.getAnswer, meta = {'data': data})
-        yield data
+        if tag == '4':
+            time.sleep(6)
+            yield data
+        
+
+    def getAnswer(self, response):
+        data = response.meta['data']
+        for i in self.lang.keys():
+            url = 'https://www.codechef.com/status/' + data['code'] + '?sort_by=Time&sorting_order=asc&language='+str(i)+'&status=15&Submit=GO'
+            yield scrapy.Request(url = url, callback= self.gett, meta = {'data': data, 'tag': str(i)})
 
     def parse(self, response):
         for link in response.css('tr.problemrow'):
             data = {}
             data['name'] = link.css('div.problemname b::text').extract()[0]
             data['code'] = link.css('td a::text').extract()[2]
+            #data['code'] = 'START01'
             data['successfully_submission'] = link.css('td div::text').extract()[2]
             data['accuracy'] = link.css('td a::text').extract()[3]
             data['answer'] = {}
@@ -83,9 +90,12 @@ class LoginSpider(scrapy.Spider):
             status = [15: Accepted]
             submit = GO (default)
 
-            '''
+            
             for i in self.lang.keys():
                 ans = 'https://www.codechef.com/status/' + data['code'] + '?sort_by=Time&sorting_order=asc&language='+str(i)+'&status=15&Submit=GO'
                 data['answer'][str(i)] = []
                 self.ll = str(i)
-                yield scrapy.Request(url = ans, callback = self.getAnswer, meta = {'data': data})
+            '''
+            ans = 'https://www.codechef.com/status/' + data['code'] + '?sort_by=Time&sorting_order=asc&language=17&status=15&Submit=GO'
+            yield scrapy.Request(url = ans, callback = self.getAnswer, meta = {'data': data})
+            #break
